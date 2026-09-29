@@ -179,6 +179,7 @@ input[type=password]{background:var(--surface2);border:1px solid var(--line);bor
 .libitem .pill{flex:none}
 .libcustom{display:flex;gap:8px;margin-top:10px}
 .libcustom input{flex:1}
+.libcustom select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;color:var(--text)}
 .edit{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
 .edit select{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--text)}
 .edit .grow{flex:1}
@@ -276,7 +277,7 @@ td img{width:72px;height:54px;object-fit:cover;border-radius:6px;display:block;b
         <div class="libhead"><input type="text" id="libSearch" placeholder="Cari hazard, cth. elektrik, licin, bising"><button class="btn sm ghost" id="libClose">Tutup</button></div>
         <div class="libcats" id="libCats"></div>
         <div class="liblist" id="libList"></div>
-        <div class="libcustom"><input type="text" id="customName" placeholder="Hazard lain, tulis sendiri"><button class="btn sm" id="customAdd">Tambah</button></div>
+        <div class="libcustom"><input type="text" id="customName" placeholder="Hazard lain, tulis sendiri"><select id="customCat" aria-label="Kategori"><option>Fizikal</option><option>Kimia</option><option>Ergonomik</option><option>Psikososial</option><option>Biologi</option></select><button class="btn sm" id="customAdd">Tambah</button></div>
       </div>
       <p class="foot-note">Rujukan: Garis Panduan HIRARC JKKP 2008 dan Akta Keselamatan dan Kesihatan Pekerjaan 1994 (Pindaan 2022). Keputusan AI ialah bantuan awal — sahkan di tapak oleh orang kompeten sebelum tindakan diambil.</p>
       <div class="row">
@@ -325,6 +326,17 @@ function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("show"); c
 /* ---------- risk helpers (JKKP HIRARC 2008) ---------- */
 const level = s => s >= 15 ? {k:"hi", n:"Tinggi"} : s >= 5 ? {k:"med", n:"Sederhana"} : {k:"lo", n:"Rendah"};
 const clamp15 = v => Math.min(5, Math.max(1, Math.round(Number(v) || 1)));
+const KATEGORI = ["Fizikal","Kimia","Ergonomik","Psikososial","Biologi"];
+function toKategori(k){
+  const t = String(k || "").toLowerCase();
+  const hit = KATEGORI.find(c => c.toLowerCase() === t);
+  if (hit) return hit;
+  if (/kimia|chemical|toksik|wasap|debu|gas|mudah terbakar/.test(t)) return "Kimia";
+  if (/ergonom|postur|angkat|berulang/.test(t)) return "Ergonomik";
+  if (/psiko|stres|tekanan|keganasan|buli|letih/.test(t)) return "Psikososial";
+  if (/bio|kuman|jangkitan|virus|bakteria|nyamuk|vektor/.test(t)) return "Biologi";
+  return "Fizikal"; // elektrikal, mekanikal, kebakaran, persekitaran, dll.
+}
 const CTRL = [["penghapusan","Penghapusan"],["penggantian","Penggantian"],["kejuruteraan","Kejuruteraan"],["pentadbiran","Pentadbiran"],["ppe","PPE"]];
 
 /* ---------- state ---------- */
@@ -471,7 +483,7 @@ function normalise(r){
     if (!h || !h.nama) return;
     const k = h.kawalan && typeof h.kawalan === "object" ? h.kawalan : {};
     out.hazard.push({
-      nama: String(h.nama), kategori: String(h.kategori || "Lain-lain"), lokasi: String(h.lokasi || ""),
+      nama: String(h.nama), kategori: toKategori(h.kategori), lokasi: String(h.lokasi || ""),
       kesan: String(h.kesan || ""), L: clamp15(h.L), S: clamp15(h.S),
       kawalan_sedia_ada: String(h.kawalan_sedia_ada || "Tiada kelihatan"),
       kawalan: Object.fromEntries(CTRL.map(([key]) => [key, k[key] ? String(k[key]) : null])),
@@ -579,9 +591,9 @@ $("#resultBody").addEventListener("click", e => {
 
 /* ---------- checklist library (works offline, no AI) ---------- */
 const LIB = [
-  ["Kabel atau wayar elektrik terdedah","Elektrikal","Renjatan elektrik, litar pintas, kebakaran",3,4,{penghapusan:"Matikan bekalan dan tanggalkan kabel rosak",penggantian:"Ganti dengan kabel bertebat baharu",kejuruteraan:"Pasang RCD/ELCB 30 mA; salurkan kabel dalam konduit",pentadbiran:"Pemeriksaan berkala oleh pendawai berdaftar; notis bahaya",ppe:"Sarung tangan penebat elektrik"}],
-  ["Soket atau plag terlebih beban","Elektrikal","Panas melampau, kebakaran elektrik",3,4,{penghapusan:"Cabut peralatan yang tidak perlu",penggantian:null,kejuruteraan:"Tambah soket tetap dengan litar berasingan",pentadbiran:"Larang penggunaan penyambung berganda berangkai",ppe:null}],
-  ["Peralatan elektrik berhampiran air","Elektrikal","Elektrokusi",3,5,{penghapusan:"Alihkan peralatan dari kawasan basah",penggantian:"Guna peralatan bertaraf IP kalis air",kejuruteraan:"Pasang RCD; tinggikan soket dari lantai",pentadbiran:"Prosedur LOTO sebelum kerja",ppe:"But penebat elektrik"}],
+  ["Kabel atau wayar elektrik terdedah","Fizikal","Renjatan elektrik, litar pintas, kebakaran",3,4,{penghapusan:"Matikan bekalan dan tanggalkan kabel rosak",penggantian:"Ganti dengan kabel bertebat baharu",kejuruteraan:"Pasang RCD/ELCB 30 mA; salurkan kabel dalam konduit",pentadbiran:"Pemeriksaan berkala oleh pendawai berdaftar; notis bahaya",ppe:"Sarung tangan penebat elektrik"}],
+  ["Soket atau plag terlebih beban","Fizikal","Panas melampau, kebakaran elektrik",3,4,{penghapusan:"Cabut peralatan yang tidak perlu",penggantian:null,kejuruteraan:"Tambah soket tetap dengan litar berasingan",pentadbiran:"Larang penggunaan penyambung berganda berangkai",ppe:null}],
+  ["Peralatan elektrik berhampiran air","Fizikal","Elektrokusi",3,5,{penghapusan:"Alihkan peralatan dari kawasan basah",penggantian:"Guna peralatan bertaraf IP kalis air",kejuruteraan:"Pasang RCD; tinggikan soket dari lantai",pentadbiran:"Prosedur LOTO sebelum kerja",ppe:"But penebat elektrik"}],
   ["Lantai licin atau basah","Fizikal","Tergelincir dan jatuh",4,2,{penghapusan:"Keringkan lantai dan baiki punca tumpahan",penggantian:null,kejuruteraan:"Lapisan lantai anti-gelincir; saliran",pentadbiran:"Papan tanda lantai licin; jadual pembersihan",ppe:"Kasut anti-gelincir"}],
   ["Laluan terhalang atau risiko tersadung","Fizikal","Tersadung dan jatuh, kelewatan evakuasi",3,2,{penghapusan:"Alihkan barang dari laluan",penggantian:null,kejuruteraan:"Tandakan laluan dengan garisan lantai",pentadbiran:"Amalan 5S dan pemeriksaan housekeeping",ppe:null}],
   ["Bekerja di tempat tinggi tanpa perlindungan jatuh","Fizikal","Jatuh dari tempat tinggi, kecederaan maut",3,5,{penghapusan:"Lakukan kerja dari aras tanah",penggantian:"Guna MEWP atau platform kerja",kejuruteraan:"Pasang rel pengadang dan jaring keselamatan",pentadbiran:"Permit kerja di tempat tinggi; orang kompeten",ppe:"Abah-abah badan penuh dengan tali penyambung"}],
@@ -589,25 +601,31 @@ const LIB = [
   ["Bunyi bising berlebihan","Fizikal","Kehilangan pendengaran akibat bising",4,3,{penghapusan:null,penggantian:"Mesin yang kurang bising",kejuruteraan:"Penutup akustik, peredam getaran",pentadbiran:"Pemantauan bising dan audiometri (Peraturan Bising 2019)",ppe:"Penyumbat atau penutup telinga"}],
   ["Pencahayaan tidak mencukupi","Fizikal","Tersadung, kesilapan kerja, ketegangan mata",3,2,{penghapusan:null,penggantian:null,kejuruteraan:"Tambah lampu mengikut tahap lux yang sesuai",pentadbiran:"Laporan dan baiki lampu rosak segera",ppe:null}],
   ["Persekitaran panas melampau","Fizikal","Strok haba, keletihan",3,3,{penghapusan:null,penggantian:null,kejuruteraan:"Pengudaraan, kipas, teduhan",pentadbiran:"Rehat berkala dan bekalan air minuman",ppe:"Pakaian ringan menyerap peluh"}],
-  ["Jentera tanpa pengadang bahagian bergerak","Mekanikal","Tersepit, terpotong, anggota putus",3,4,{penghapusan:null,penggantian:null,kejuruteraan:"Pasang pengadang tetap dan suis henti kecemasan",pentadbiran:"LOTO semasa penyelenggaraan; latihan operator",ppe:"Elak pakaian longgar dan barang kemas"}],
-  ["Objek jatuh dari atas","Mekanikal","Kecederaan kepala atau badan",3,4,{penghapusan:"Kosongkan barang longgar di aras atas",penggantian:null,kejuruteraan:"Papan kaki, jaring penangkap, zon eksklusi",pentadbiran:"Larang berada di bawah beban tergantung",ppe:"Topi keselamatan SIRIM"}],
-  ["Susunan barang tidak stabil","Mekanikal","Barang tumbang menimpa pekerja",3,3,{penghapusan:null,penggantian:null,kejuruteraan:"Rak berlabel had beban, dipasak ke dinding",pentadbiran:"Had ketinggian susunan; barang berat di bawah",ppe:"Kasut keselamatan"}],
-  ["Kenderaan atau forklift berkongsi laluan pejalan kaki","Mekanikal","Dilanggar kenderaan",3,5,{penghapusan:"Asingkan laluan kenderaan dan pejalan kaki",penggantian:null,kejuruteraan:"Penghadang fizikal, cermin cembung, lampu amaran",pentadbiran:"Had laju; operator berlesen",ppe:"Jaket keterlihatan tinggi"}],
+  ["Jentera tanpa pengadang bahagian bergerak","Fizikal","Tersepit, terpotong, anggota putus",3,4,{penghapusan:null,penggantian:null,kejuruteraan:"Pasang pengadang tetap dan suis henti kecemasan",pentadbiran:"LOTO semasa penyelenggaraan; latihan operator",ppe:"Elak pakaian longgar dan barang kemas"}],
+  ["Objek jatuh dari atas","Fizikal","Kecederaan kepala atau badan",3,4,{penghapusan:"Kosongkan barang longgar di aras atas",penggantian:null,kejuruteraan:"Papan kaki, jaring penangkap, zon eksklusi",pentadbiran:"Larang berada di bawah beban tergantung",ppe:"Topi keselamatan SIRIM"}],
+  ["Susunan barang tidak stabil","Fizikal","Barang tumbang menimpa pekerja",3,3,{penghapusan:null,penggantian:null,kejuruteraan:"Rak berlabel had beban, dipasak ke dinding",pentadbiran:"Had ketinggian susunan; barang berat di bawah",ppe:"Kasut keselamatan"}],
+  ["Kenderaan atau forklift berkongsi laluan pejalan kaki","Fizikal","Dilanggar kenderaan",3,5,{penghapusan:"Asingkan laluan kenderaan dan pejalan kaki",penggantian:null,kejuruteraan:"Penghadang fizikal, cermin cembung, lampu amaran",pentadbiran:"Had laju; operator berlesen",ppe:"Jaket keterlihatan tinggi"}],
   ["Bahan kimia tanpa label atau SDS","Kimia","Pendedahan kimia, keracunan, kebakaran",3,4,{penghapusan:"Lupuskan bahan kimia tidak dikenal pasti",penggantian:"Guna bahan kurang berbahaya",kejuruteraan:"Kabinet simpanan kimia berpengudaraan",pentadbiran:"Label mengikut CLASS 2013; sediakan SDS; latihan",ppe:"Sarung tangan kimia, cermin mata"}],
   ["Wasap, debu atau wap tanpa pengudaraan","Kimia","Penyakit pernafasan",3,4,{penghapusan:null,penggantian:"Kaedah basah atau bahan kurang berdebu",kejuruteraan:"Pengudaraan ekzos setempat (LEV)",pentadbiran:"Pemantauan pendedahan (USECHH)",ppe:"Respirator sesuai yang diuji padanan"}],
-  ["Alat pemadam api terhalang atau tamat tempoh","Kebakaran","Api tidak dapat dipadam awal",3,4,{penghapusan:"Alihkan halangan dari hadapan pemadam api",penggantian:"Ganti pemadam api tamat tempoh",kejuruteraan:"Garisan larangan di lantai",pentadbiran:"Pemeriksaan bulanan dan tag servis BOMBA",ppe:null}],
-  ["Laluan atau pintu kecemasan tersekat","Kebakaran","Terperangkap semasa kecemasan",3,5,{penghapusan:"Kosongkan laluan dan buka kunci pintu",penggantian:null,kejuruteraan:"Lampu dan papan tanda keluar kecemasan",pentadbiran:"Latihan kebakaran berkala; pemeriksaan harian",ppe:null}],
-  ["Bahan mudah terbakar berhampiran sumber api","Kebakaran","Kebakaran, letupan",3,5,{penghapusan:"Alihkan bahan mudah terbakar",penggantian:null,kejuruteraan:"Kabinet kalis api; jarak selamat",pentadbiran:"Permit kerja panas; larangan merokok",ppe:null}],
+  ["Alat pemadam api terhalang atau tamat tempoh","Fizikal","Api tidak dapat dipadam awal",3,4,{penghapusan:"Alihkan halangan dari hadapan pemadam api",penggantian:"Ganti pemadam api tamat tempoh",kejuruteraan:"Garisan larangan di lantai",pentadbiran:"Pemeriksaan bulanan dan tag servis BOMBA",ppe:null}],
+  ["Laluan atau pintu kecemasan tersekat","Fizikal","Terperangkap semasa kecemasan",3,5,{penghapusan:"Kosongkan laluan dan buka kunci pintu",penggantian:null,kejuruteraan:"Lampu dan papan tanda keluar kecemasan",pentadbiran:"Latihan kebakaran berkala; pemeriksaan harian",ppe:null}],
+  ["Bahan mudah terbakar berhampiran sumber api","Kimia","Kebakaran, letupan",3,5,{penghapusan:"Alihkan bahan mudah terbakar",penggantian:null,kejuruteraan:"Kabinet kalis api; jarak selamat",pentadbiran:"Permit kerja panas; larangan merokok",ppe:null}],
   ["Mengangkat beban berat secara manual","Ergonomik","Kecederaan belakang dan otot",4,3,{penghapusan:"Elak angkat manual jika boleh",penggantian:"Pek lebih kecil atau ringan",kejuruteraan:"Troli, kren atau alat bantu angkat",pentadbiran:"Latihan teknik mengangkat; angkat berdua",ppe:"Sarung tangan cengkaman"}],
   ["Postur janggal atau kerja berulang","Ergonomik","Gangguan otot rangka (MSD)",4,2,{penghapusan:null,penggantian:null,kejuruteraan:"Stesen kerja boleh laras",pentadbiran:"Putaran tugas dan rehat mikro",ppe:null}],
   ["Air bertakung (pembiakan nyamuk)","Biologi","Denggi dan penyakit bawaan vektor",3,3,{penghapusan:"Buang air bertakung dan bekas terbuka",penggantian:null,kejuruteraan:"Baiki saliran dan bumbung bocor",pentadbiran:"Pemeriksaan mingguan kawasan",ppe:"Penghalau serangga"}],
   ["Sisa klinikal atau objek tajam terbuka","Biologi","Jangkitan, luka tertusuk",2,4,{penghapusan:null,penggantian:null,kejuruteraan:"Bekas sisa tajam kalis tusukan",pentadbiran:"Prosedur pelupusan sisa terjadual",ppe:"Sarung tangan tahan tusukan"}],
-  ["Pekerja tidak memakai PPE yang diperlukan","Lain-lain","Kecederaan yang boleh dielak",4,3,{penghapusan:null,penggantian:null,kejuruteraan:null,pentadbiran:"Penguatkuasaan PPE oleh penyelia; taklimat keselamatan",ppe:"Sediakan PPE sesuai dan saiz yang betul"}],
+  ["Pekerja tidak memakai PPE yang diperlukan","Fizikal","Kecederaan yang boleh dielak",4,3,{penghapusan:null,penggantian:null,kejuruteraan:null,pentadbiran:"Penguatkuasaan PPE oleh penyelia; taklimat keselamatan",ppe:"Sediakan PPE sesuai dan saiz yang betul"}],
   ["Tekanan kerja atau waktu kerja berlebihan","Psikososial","Keletihan, stres, kemalangan",3,3,{penghapusan:null,penggantian:null,kejuruteraan:null,pentadbiran:"Hadkan kerja lebih masa; jadual syif seimbang",ppe:null}],
+  ["Tumpahan minyak atau cecair kimia","Kimia","Kerengsaan kulit, tergelincir, pencemaran",3,3,{penghapusan:"Bersihkan tumpahan segera dengan kit tumpahan",penggantian:null,kejuruteraan:"Dulang takungan di bawah bekas",pentadbiran:"Prosedur pengendalian tumpahan; SDS berdekatan",ppe:"Sarung tangan dan kasut tahan kimia"}],
+  ["Duduk lama di stesen kerja komputer","Ergonomik","Sakit leher, bahu dan belakang",4,2,{penghapusan:null,penggantian:null,kejuruteraan:"Kerusi dan meja boleh laras; paras skrin sebaris mata",pentadbiran:"Rehat setiap 30–60 minit; penilaian ergonomik",ppe:null}],
+  ["Bekerja bersendirian atau di kawasan terpencil","Psikososial","Lewat mendapat bantuan semasa kecemasan, tekanan",3,3,{penghapusan:"Elak kerja berisiko tinggi secara bersendirian",penggantian:null,kejuruteraan:"Alat komunikasi atau penggera panik",pentadbiran:"Sistem semakan berkala (buddy check)",ppe:null}],
+  ["Ancaman keganasan, buli atau gangguan","Psikososial","Kecederaan, trauma, kemurungan",2,4,{penghapusan:null,penggantian:null,kejuruteraan:"CCTV, kawalan akses, pencahayaan baik",pentadbiran:"Polisi anti-buli dan saluran aduan sulit; kaunseling",ppe:null}],
+  ["Kulat atau lumut pada dinding dan siling lembap","Biologi","Alahan dan masalah pernafasan",3,2,{penghapusan:"Baiki punca kebocoran dan bersihkan kulat",penggantian:null,kejuruteraan:"Pengudaraan dan kawalan kelembapan",pentadbiran:"Pemeriksaan kualiti udara dalaman (IAQ)",ppe:"Pelitup muka semasa pembersihan"}],
+  ["Tikus atau perosak (risiko leptospirosis)","Biologi","Jangkitan leptospirosis dan penyakit bawaan perosak",3,4,{penghapusan:"Buang sisa makanan dan sampah dengan betul",penggantian:null,kejuruteraan:"Tutup lubang masuk; tong sampah bertutup",pentadbiran:"Kawalan perosak berjadual",ppe:"Sarung tangan dan but semasa membersih"}],
 ].map(([nama, kategori, kesan, L, S, kawalan]) => ({ nama, kategori, kesan, L, S, kawalan }));
 let libCat = "Semua";
 function renderLib(){
-  const cats = ["Semua", ...new Set(LIB.map(h => h.kategori))];
+  const cats = ["Semua", ...KATEGORI];
   $("#libCats").innerHTML = cats.map(c => `<button class="chip" aria-pressed="${c === libCat}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
   const q = $("#libSearch").value.trim().toLowerCase();
   const list = LIB.filter(h => (libCat === "Semua" || h.kategori === libCat) && (!q || (h.nama + " " + h.kesan + " " + h.kategori).toLowerCase().includes(q)));
@@ -634,7 +652,7 @@ $("#libCats").onclick = e => { const b = e.target.closest("[data-cat]"); if (b) 
 $("#libList").onclick = e => { const b = e.target.closest("[data-lib]"); if (b) addHazard(LIB[+b.dataset.lib]); };
 $("#customAdd").onclick = () => {
   const n = $("#customName").value.trim(); if (!n) { $("#customName").focus(); return; }
-  addHazard({ nama: n, kategori: "Lain-lain", kesan: "Tentukan di tapak", L: 3, S: 3, kawalan: {} }); $("#customName").value = "";
+  addHazard({ nama: n, kategori: $("#customCat").value, kesan: "Tentukan di tapak", L: 3, S: 3, kawalan: {} }); $("#customName").value = "";
 };
 
 /* ---------- demo scenes ---------- */
@@ -676,21 +694,21 @@ function scene(i){
 const DEMOS = [
   { tempat:"Contoh: bengkel penyelenggaraan dengan lantai basah", ringkasan:"Contoh demo — kabel sambungan dengan konduktor terdedah dan percikan api berada di dalam takungan air. Risiko renjatan elektrik dan kebakaran sangat tinggi.",
     hazard:[
-      { nama:"Kabel elektrik terdedah dalam air", kategori:"Elektrikal", lokasi:"Tengah lantai", kesan:"Renjatan elektrik (elektrokusi), litar pintas dan kebakaran", L:4, S:5, kawalan_sedia_ada:"Tiada kelihatan",
+      { nama:"Kabel elektrik terdedah dalam air", kategori:"Fizikal", lokasi:"Tengah lantai", kesan:"Renjatan elektrik (elektrokusi), litar pintas dan kebakaran", L:4, S:5, kawalan_sedia_ada:"Tiada kelihatan",
         kawalan:{ penghapusan:"Matikan bekalan di papan suis dan tanggalkan kabel rosak serta-merta", penggantian:"Ganti dengan kabel berperisai kalis air bertaraf IP67", kejuruteraan:"Pasang ELCB/RCD 30 mA dan salurkan kabel dalam konduit di atas lantai", pentadbiran:"Pasang notis bahaya, laksanakan LOTO dan pemeriksaan berkala oleh pendawai", ppe:"But dan sarung tangan penebat elektrik" }, kotak:[0.53,0.6,0.35,0.3] },
       { nama:"Lantai licin akibat takungan air", kategori:"Fizikal", lokasi:"Lantai bahagian bawah", kesan:"Tergelincir dan jatuh, kecederaan anggota", L:4, S:3, kawalan_sedia_ada:"Tiada kelihatan",
         kawalan:{ penghapusan:"Keringkan lantai dan baiki punca kebocoran", penggantian:null, kejuruteraan:"Perbaiki kecerunan lantai dan saliran", pentadbiran:"Letak papan tanda lantai licin; jadual pembersihan", ppe:"Kasut keselamatan anti-gelincir" }, kotak:[0.28,0.7,0.5,0.22] } ] },
   { tempat:"Contoh: tapak pembinaan dengan perancah", ringkasan:"Contoh demo — seorang pekerja di bawah beban kren tidak memakai topi keselamatan. Seorang lagi mematuhi PPE.",
     hazard:[
-      { nama:"Pekerja tanpa topi keselamatan di bawah beban tergantung", kategori:"Mekanikal", lokasi:"Kiri, di bawah lengan kren", kesan:"Kecederaan kepala maut akibat objek jatuh", L:4, S:5, kawalan_sedia_ada:"Rakan sekerja memakai topi keselamatan",
+      { nama:"Pekerja tanpa topi keselamatan di bawah beban tergantung", kategori:"Fizikal", lokasi:"Kiri, di bawah lengan kren", kesan:"Kecederaan kepala maut akibat objek jatuh", L:4, S:5, kawalan_sedia_ada:"Rakan sekerja memakai topi keselamatan",
         kawalan:{ penghapusan:"Larang pekerja berada di bawah beban tergantung", penggantian:null, kejuruteraan:"Pasang penghadang zon eksklusi di bawah laluan kren", pentadbiran:"Penyelia tapak laksanakan pemeriksaan PPE harian; taklimat keselamatan", ppe:"Topi keselamatan SIRIM dengan tali dagu" }, kotak:[0.22,0.4,0.16,0.4] },
       { nama:"Perancah tanpa rel pengadang lengkap", kategori:"Fizikal", lokasi:"Kanan", kesan:"Jatuh dari tempat tinggi", L:3, S:4, kawalan_sedia_ada:"Pelantar papan",
         kawalan:{ penghapusan:"Lakukan kerja di aras tanah jika boleh", penggantian:"Guna platform kerja mudah alih (MEWP)", kejuruteraan:"Pasang rel atas, rel tengah dan papan kaki", pentadbiran:"Perancah diperiksa dan ditag oleh pemasang perancah berdaftar", ppe:"Abah-abah badan penuh dengan tali penyambung" }, kotak:[0.57,0.12,0.35,0.6] } ] },
   { tempat:"Contoh: stor dengan alat pemadam api", ringkasan:"Contoh demo — kotak disusun di hadapan alat pemadam api dan menghalang akses semasa kecemasan.",
     hazard:[
-      { nama:"Akses alat pemadam api terhalang", kategori:"Kebakaran", lokasi:"Tengah dinding", kesan:"Kelewatan memadam api awal; kebakaran merebak", L:3, S:5, kawalan_sedia_ada:"Papan tanda pemadam api dipasang",
+      { nama:"Akses alat pemadam api terhalang", kategori:"Fizikal", lokasi:"Tengah dinding", kesan:"Kelewatan memadam api awal; kebakaran merebak", L:3, S:5, kawalan_sedia_ada:"Papan tanda pemadam api dipasang",
         kawalan:{ penghapusan:"Alihkan semua kotak dari kawasan 1 m di hadapan pemadam api", penggantian:null, kejuruteraan:"Cat garisan larangan di lantai hadapan pemadam api", pentadbiran:"Pemeriksaan bulanan pemadam api dan housekeeping 5S", ppe:null }, kotak:[0.34,0.25,0.34,0.45] },
-      { nama:"Susunan kotak tidak stabil", kategori:"Mekanikal", lokasi:"Tengah dan kiri", kesan:"Kotak jatuh menimpa pekerja", L:3, S:2, kawalan_sedia_ada:"Tiada kelihatan",
+      { nama:"Susunan kotak tidak stabil", kategori:"Fizikal", lokasi:"Tengah dan kiri", kesan:"Kotak jatuh menimpa pekerja", L:3, S:2, kawalan_sedia_ada:"Tiada kelihatan",
         kawalan:{ penghapusan:null, penggantian:null, kejuruteraan:"Guna rak simpanan berlabel had beban", pentadbiran:"Tetapkan had ketinggian susunan", ppe:"Kasut keselamatan" }, kotak:[0.06,0.33,0.62,0.4] } ] }
 ];
 document.querySelectorAll("[data-demo]").forEach(b => b.onclick = async () => {
@@ -766,8 +784,8 @@ function renderLogViews(){
   $("#kScans").textContent = logs.length; $("#kHaz").textContent = all.length;
   $("#kHigh").textContent = all.filter(h => h.L*h.S >= 15).length;
   $("#kAvg").textContent = all.length ? (all.reduce((s, h) => s + h.L*h.S, 0) / all.length).toFixed(1) : "0";
-  const cats = {}; all.forEach(h => cats[h.kategori] = (cats[h.kategori] || 0) + 1);
-  const cArr = Object.entries(cats).sort((a, b) => b[1] - a[1]), cMax = Math.max(1, ...cArr.map(c => c[1]));
+  const cats = Object.fromEntries(KATEGORI.map(k => [k, 0])); all.forEach(h => cats[toKategori(h.kategori)]++);
+  const cArr = all.length ? Object.entries(cats).sort((a, b) => b[1] - a[1]) : [], cMax = Math.max(1, ...cArr.map(c => c[1]));
   $("#catBars").innerHTML = cArr.length ? cArr.map(([k, n]) => `<div class="barrow"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${n/cMax*100}%"></div></div><b>${n}</b></div>`).join("") : `<p class="muted">Tiada data lagi.</p>`;
   const lv = { hi:0, med:0, lo:0 }; all.forEach(h => lv[level(h.L*h.S).k]++);
   const lMax = Math.max(1, lv.hi, lv.med, lv.lo);
@@ -792,7 +810,7 @@ $("#btnCsv").onclick = () => {
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const rows = [["Tarikh","Lokasi","Penilai","Hazard","Kategori","Kesan","L","S","Skor","Tahap","Kawalan sedia ada",...CTRL.map(c => c[1])]];
   logs.forEach(r => (r.hazard?.length ? r.hazard : [null]).forEach(h => rows.push(h
-    ? [r.createdAt, r.lokasi, r.penilai, h.nama, h.kategori, h.kesan, h.L, h.S, h.L*h.S, level(h.L*h.S).n, h.kawalan_sedia_ada, ...CTRL.map(([k]) => h.kawalan?.[k] || "")]
+    ? [r.createdAt, r.lokasi, r.penilai, h.nama, toKategori(h.kategori), h.kesan, h.L, h.S, h.L*h.S, level(h.L*h.S).n, h.kawalan_sedia_ada, ...CTRL.map(([k]) => h.kawalan?.[k] || "")]
     : [r.createdAt, r.lokasi, r.penilai, "Tiada hazard"])));
   saveFile(`log-audit-hazscan-${new Date().toISOString().slice(0,10)}.csv`, "\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n"));
 };
@@ -814,7 +832,7 @@ function makePdf(rec, imgData){
   const hz = rec.hazard || [];
   doc.autoTable({ startY: y + 3, styles:{ fontSize:8.5, cellPadding:2, valign:"top" }, headStyles:{ fillColor:[26,29,33] },
     head:[["#","Hazard & lokasi","Risiko / kesan","L","S","Skor","Kawalan (hierarki)"]],
-    body: hz.length ? hz.map((h, i) => [i+1, `${h.nama}\n(${h.kategori})${h.lokasi ? "\n" + h.lokasi : ""}`, `${h.kesan}\nSedia ada: ${h.kawalan_sedia_ada}`, h.L, h.S, `${h.L*h.S}\n${level(h.L*h.S).n}`,
+    body: hz.length ? hz.map((h, i) => [i+1, `${h.nama}\n(${toKategori(h.kategori)})${h.lokasi ? "\n" + h.lokasi : ""}`, `${h.kesan}\nSedia ada: ${h.kawalan_sedia_ada}`, h.L, h.S, `${h.L*h.S}\n${level(h.L*h.S).n}`,
       CTRL.filter(([k]) => h.kawalan?.[k]).map(([k, n]) => `${n}: ${h.kawalan[k]}`).join("\n")]) : [["-","Tiada hazard dikenal pasti","","","","",""]],
     columnStyles:{ 0:{cellWidth:7}, 1:{cellWidth:38}, 2:{cellWidth:40}, 3:{cellWidth:8}, 4:{cellWidth:8}, 5:{cellWidth:18, fontStyle:"bold"}, 6:{cellWidth:"auto"} },
     didParseCell: d => { if (d.section === "body" && d.column.index === 5 && hz[d.row.index]) d.cell.styles.textColor = col(hz[d.row.index].L * hz[d.row.index].S); } });
