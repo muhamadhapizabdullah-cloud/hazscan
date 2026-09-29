@@ -21,10 +21,11 @@ Peraturan penting:
    Keterukan S (1-5): 1 boleh diabaikan, 2 kecil (pertolongan cemas), 3 serius (cuti sakit/kecederaan tidak kekal), 4 maut/hilang upaya kekal seorang, 5 bencana (ramai kematian/kerosakan besar).
 4. Beri kawalan mengikut hierarki: penghapusan, penggantian, kejuruteraan, pentadbiran, ppe. Isi null jika tidak praktikal. Cadangan khusus kepada situasi dalam gambar, maks 20 patah perkataan setiap satu.
 5. "kotak" ialah kotak sempadan hazard sebagai [x, y, lebar, tinggi] dalam pecahan 0-1 dari kiri atas imej, atau null.
-6. Maksimum 6 hazard, susun dari risiko tertinggi. Semua teks dalam Bahasa Melayu.
+6. "kategori" MESTI salah satu daripada 5 ini sahaja: Fizikal, Kimia, Ergonomik, Psikososial, Biologi. Hazard elektrik, mekanikal, jentera, jatuh, bising, haba, kebakaran dan lantai licin dikelaskan sebagai Fizikal. Bahan kimia, wasap, debu, gas dan bahan mudah terbakar sebagai Kimia. Postur, angkat beban dan kerja berulang sebagai Ergonomik. Stres, beban kerja, keganasan dan buli sebagai Psikososial. Kuman, virus, bakteria, vektor dan sisa klinikal sebagai Biologi.
+7. Maksimum 6 hazard, susun dari risiko tertinggi. Semua teks dalam Bahasa Melayu.
 
 Balas dengan JSON SAHAJA, bentuk tepat:
-{"tempat":"huraian ringkas tempat/aktiviti","ringkasan":"1-2 ayat penemuan utama","hazard":[{"nama":"...","kategori":"Fizikal|Kimia|Biologi|Ergonomik|Psikososial|Elektrikal|Mekanikal|Kebakaran|Persekitaran","lokasi":"...","kesan":"...","L":4,"S":4,"kawalan_sedia_ada":"...","kawalan":{"penghapusan":"...","penggantian":null,"kejuruteraan":"...","pentadbiran":"...","ppe":"..."},"kotak":[0.1,0.2,0.3,0.25]}]}`;
+{"tempat":"huraian ringkas tempat/aktiviti","ringkasan":"1-2 ayat penemuan utama","hazard":[{"nama":"...","kategori":"Fizikal|Kimia|Ergonomik|Psikososial|Biologi","lokasi":"...","kesan":"...","L":4,"S":4,"kawalan_sedia_ada":"...","kawalan":{"penghapusan":"...","penggantian":null,"kejuruteraan":"...","pentadbiran":"...","ppe":"..."},"kotak":[0.1,0.2,0.3,0.25]}]}`;
 }
 
 export default async (request, context) => {
