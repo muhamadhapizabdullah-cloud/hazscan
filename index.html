@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HazScan AI — Analisis Hazard HIRARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --bg:#EEF1F3; --surface:#FFFFFF; --surface2:#F4F6F8; --line:#D3DAE0; --text:#12181E; --muted:#5A6774;
+  --accent:#0C8A9E; --accent-ink:#FFFFFF; --accent-soft:rgba(12,138,158,.12);
+  --hi:#D6333A; --hi-soft:rgba(214,51,58,.12); --med:#C97F06; --med-soft:rgba(201,127,6,.14);
+  --lo:#23964F; --lo-soft:rgba(35,150,79,.13); --stage:#0F1419;
+  --stripe-a:#F2B01E; --stripe-b:#1A1D21;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1217; --surface:#151C23; --surface2:#1B242D; --line:#29343F; --text:#E7ECF0; --muted:#8B99A6;
+    --accent:#45C8DA; --accent-ink:#06171B; --accent-soft:rgba(69,200,218,.13);
+    --hi:#F0565C; --hi-soft:rgba(240,86,92,.15); --med:#F0A62B; --med-soft:rgba(240,166,43,.15);
+    --lo:#43C173; --lo-soft:rgba(67,193,115,.14); --stage:#05080B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1217; --surface:#151C23; --surface2:#1B242D; --line:#29343F; --text:#E7ECF0; --muted:#8B99A6;
+  --accent:#45C8DA; --accent-ink:#06171B; --accent-soft:rgba(69,200,218,.13);
+  --hi:#F0565C; --hi-soft:rgba(240,86,92,.15); --med:#F0A62B; --med-soft:rgba(240,166,43,.15);
+  --lo:#43C173; --lo-soft:rgba(67,193,115,.14); --stage:#05080B;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+img,canvas,video{max-width:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* header */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--surface);border-bottom:1px solid var(--line)}
+.stripe{height:6px;background:repeating-linear-gradient(-45deg,var(--stripe-a) 0 12px,var(--stripe-b) 12px 24px)}
+.bar{max-width:1320px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+.logo{width:40px;height:40px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.brand h1{margin:0;font:700 26px/1 var(--display);letter-spacing:.2px}
+.brand p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+nav{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:4px}
+nav button{border:0;background:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--muted);display:flex;gap:7px;align-items:center}
+nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+nav svg{width:16px;height:16px}
+
+main{max-width:1320px;margin:0 auto;padding:20px}
+.view[hidden]{display:none}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:940px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.panel h2{margin:0 0 14px;font:700 22px/1.1 var(--display);display:flex;align-items:center;gap:10px}
+.panel h2 .grow{margin-left:auto}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border-radius:10px;aspect-ratio:4/3;overflow:hidden;display:grid;place-items:center}
+.stage canvas,.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.stage .empty{color:#C9D3DB;text-align:center;padding:24px;max-width:420px}
+.stage .empty svg{width:52px;height:52px;color:var(--stripe-a);margin-bottom:10px}
+.stage .empty b{display:block;font:700 22px var(--display);color:#fff;margin-bottom:4px}
+.scanline{position:absolute;left:0;right:0;height:3px;background:var(--stripe-a);box-shadow:0 0 18px 4px rgba(242,176,30,.55);top:0;display:none}
+.stage.scanning .scanline{display:block;animation:scan 1.8s ease-in-out infinite alternate}
+@keyframes scan{to{top:calc(100% - 3px)}}
+@media (prefers-reduced-motion:reduce){.stage.scanning .scanline{animation:none;top:50%}}
+.demo-tag{position:absolute;top:10px;left:10px;background:var(--stripe-a);color:#1A1D21;font-size:12px;font-weight:600;padding:3px 9px;border-radius:5px;display:none}
+.stage.is-demo .demo-tag{display:block}
+
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.btn{border:1px solid var(--line);background:var(--surface2);padding:10px 16px;border-radius:9px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:8px;line-height:1.2}
+.btn svg{width:17px;height:17px;flex:none}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.go{background:var(--stripe-a);color:#1A1D21;border-color:transparent;font-size:16px;padding:12px 22px}
+.btn.danger{color:var(--hi);border-color:color-mix(in srgb,var(--hi) 40%,transparent);background:var(--hi-soft)}
+.btn.ghost{background:none}
+.btn.sm{padding:6px 11px;font-size:13px}
+
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:500}
+.fields .full{grid-column:1/-1}
+input[type=text],textarea{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);width:100%}
+textarea{resize:vertical;min-height:58px}
+@media (max-width:560px){.fields{grid-template-columns:1fr}}
+
+.demos{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.demos p{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.chip{border:1px solid var(--line);background:var(--surface2);border-radius:999px;padding:7px 13px;cursor:pointer;font-size:13.5px}
+.chip:hover{border-color:var(--accent)}
+
+/* result */
+.status{display:flex;gap:14px;align-items:center;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.status .t{flex:1;min-width:0}
+.status small{color:var(--muted);font-size:12.5px}
+.status strong{display:block;font-size:17px;line-height:1.3}
+.badge{font:700 18px/1 var(--display);padding:9px 14px;border-radius:8px;white-space:nowrap;border:1.5px solid currentColor}
+.b-hi{color:var(--hi);background:var(--hi-soft)} .b-med{color:var(--med);background:var(--med-soft)} .b-lo{color:var(--lo);background:var(--lo-soft)} .b-none{color:var(--muted);background:transparent}
+.summary{margin:14px 0 0;padding:12px 16px;border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0}
+.summary.warn{border-color:var(--med);background:var(--med-soft)}
+.progress{margin-top:14px;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--stripe-a);animation:pulse 1s infinite alternate}
+@keyframes pulse{to{opacity:.25}}
+
+.matrix-wrap{display:flex;gap:18px;align-items:flex-start;margin-top:16px;flex-wrap:wrap}
+.matrix{display:grid;grid-template-columns:22px repeat(5,34px);grid-template-rows:repeat(5,34px) 22px;gap:3px;font-size:11px}
+.matrix .c{border-radius:4px;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff}
+.matrix .c.lo{background:color-mix(in srgb,var(--lo) 30%,transparent)} .matrix .c.med{background:color-mix(in srgb,var(--med) 30%,transparent)} .matrix .c.hi{background:color-mix(in srgb,var(--hi) 30%,transparent)}
+.matrix .c.on.lo{background:var(--lo)} .matrix .c.on.med{background:var(--med)} .matrix .c.on.hi{background:var(--hi)}
+.matrix .ax{display:grid;place-items:center;color:var(--muted)}
+.legend{font-size:13px;color:var(--muted);flex:1;min-width:180px}
+.legend div{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+.hz{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.hcard{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.hcard .top{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--surface2)}
+.hcard .num{font:700 20px/1 var(--display);width:30px;height:30px;border-radius:6px;display:grid;place-items:center;flex:none;background:var(--stripe-a);color:#1A1D21}
+.hcard .top .t{flex:1;min-width:0}
+.hcard h3{margin:0;font-size:15.5px;line-height:1.3}
+.hcard .meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.score{text-align:center;padding:6px 10px;border-radius:7px;border:1.5px solid currentColor;flex:none}
+.score b{display:block;font:700 22px/1 var(--display)}
+.score span{font-size:11px;font-weight:600}
+.hcard .body{padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;font-size:14px}
+.hcard .body .full{grid-column:1/-1}
+.hcard dt{font-size:12px;color:var(--muted);font-weight:600}
+.hcard dd{margin:2px 0 0}
+@media (max-width:560px){.hcard .body{grid-template-columns:1fr}}
+.ctrl{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ctrl li{display:grid;grid-template-columns:118px 1fr;gap:10px;font-size:13.5px;padding:7px 10px;border-radius:7px;background:var(--surface2)}
+.ctrl li b{font-weight:600;color:var(--accent)}
+@media (max-width:560px){.ctrl li{grid-template-columns:1fr;gap:2px}}
+.foot-note{font-size:12.5px;color:var(--muted);margin-top:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:9px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:calc(100% - 32px)}
+.toast.show{opacity:1}
+
+/* stats */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.kpi b{display:block;font:700 38px/1 var(--display)}
+.kpi span{font-size:13px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:10px}
+.barrow{display:grid;grid-template-columns:150px 1fr 40px;gap:10px;align-items:center;font-size:14px}
+.barrow .track{height:14px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.barrow .fill{height:100%;border-radius:4px;background:var(--accent)}
+@media (max-width:560px){.barrow{grid-template-columns:110px 1fr 32px}}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.heat{display:grid;grid-template-columns:22px repeat(5,1fr);gap:4px;max-width:360px;font-size:11px}
+.heat .c{aspect-ratio:1;border-radius:5px;display:grid;place-items:center;font-weight:700;font-size:15px}
+.heat .ax{display:grid;place-items:center;color:var(--muted)}
+
+input[type=password]{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);width:100%}
+.lib{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);padding:12px}
+.libhead{display:flex;gap:8px}
+.libhead input{flex:1}
+.libcats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.libcats .chip{padding:5px 11px;font-size:12.5px}
+.libcats .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.liblist{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto}
+.libitem{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 11px;cursor:pointer;width:100%}
+.libitem:hover{border-color:var(--accent)}
+.libitem small{color:var(--muted);display:block;font-size:12px}
+.libitem .pill{flex:none}
+.libcustom{display:flex;gap:8px;margin-top:10px}
+.libcustom input{flex:1}
+.edit{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.edit select{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--text)}
+.edit .grow{flex:1}
+.src{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);margin-left:6px;vertical-align:1px}
+/* log */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th{text-align:left;font-weight:600;font-size:12.5px;color:var(--muted);background:var(--surface2);padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td img{width:72px;height:54px;object-fit:cover;border-radius:6px;display:block;background:var(--stage)}
+.pill{display:inline-block;padding:3px 9px;border-radius:6px;font-weight:700;font-size:12.5px;border:1px solid currentColor}
+.empty-state{text-align:center;padding:36px 16px;color:var(--muted)}
+.store-note{font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="stripe" aria-hidden="true"></div>
+  <div class="bar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></div>
+      <div><h1>HazScan AI</h1><p>Pengenalpastian hazard, penilaian risiko &amp; kawalan (HIRARC)</p></div>
+    </div>
+    <nav role="tablist" aria-label="Menu utama">
+      <button role="tab" aria-selected="true" data-view="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg>Imbasan</button>
+      <button role="tab" aria-selected="false" data-view="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Statistik</button>
+      <button role="tab" aria-selected="false" data-view="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4h4zM8 9h8M8 13h8M8 17h5"/></svg>Log Audit</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<!-- SCAN -->
+<section class="view" id="view-scan">
+  <div class="grid">
+    <div class="panel">
+      <h2>Gambar tempat kerja</h2>
+      <div class="stage" id="stage">
+        <div class="empty" id="stageEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <b>Ambil atau muat naik gambar</b>
+          Gunakan kamera, pilih foto dari peranti, atau cuba salah satu contoh demo di bawah.
+        </div>
+        <video id="video" playsinline muted hidden></video>
+        <canvas id="canvas" hidden></canvas>
+        <div class="scanline" aria-hidden="true"></div>
+        <div class="demo-tag">Contoh demo</div>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" id="btnLive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg>Kamera live</button>
+        <button class="btn primary" id="btnShoot" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>Tangkap gambar</button>
+        <label class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>Kamera telefon<input type="file" accept="image/*" capture="environment" class="sr" id="fileCam"></label>
+        <label class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>Muat naik gambar<input type="file" accept="image/*" class="sr" id="fileUp"></label>
+        <button class="btn danger" id="btnReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5"/></svg>Reset</button>
+      </div>
+      <p class="small muted" id="camMsg" hidden></p>
+
+      <div class="fields">
+        <label>Lokasi / jabatan<input type="text" id="fLokasi" placeholder="cth. Bengkel penyelenggaraan, Blok B"></label>
+        <label>Nama penilai<input type="text" id="fPenilai" placeholder="cth. Ahmad bin Ali"></label>
+        <label class="full">Aktiviti kerja atau maklumat tambahan (pilihan)<textarea id="fKonteks" placeholder="cth. Kerja kimpalan di aras 2, pekerja kontraktor"></textarea></label>
+      </div>
+      <div class="row">
+        <button class="btn go" id="btnAnalyse" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Analisis hazard</button>
+        <button class="btn ghost" id="btnStop" hidden>Henti</button>
+      </div>
+      <p class="small muted" id="modeNote" style="margin:8px 0 0">Menyemak ketersediaan AI…</p>
+
+      <div class="demos">
+        <p>Contoh demo (keputusan contoh, tanpa AI):</p>
+        <div class="row" style="margin-top:0">
+          <button class="chip" data-demo="0">Wayar terdedah &amp; air</button>
+          <button class="chip" data-demo="1">Pekerja tanpa topi keselamatan</button>
+          <button class="chip" data-demo="2">Alat pemadam api terhalang</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Keputusan HIRARC
+        <span class="grow"></span>
+        <button class="btn sm" id="btnPdf" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6m0 0-3-3m3 3 3-3"/></svg>Laporan PDF</button>
+      </h2>
+      <div class="status">
+        <div class="t"><small>Status penilaian</small><strong id="stTitle">Belum ada gambar</strong></div>
+        <span class="badge b-none" id="stBadge">—</span>
+      </div>
+      <div id="resultBody">
+        <p class="summary" id="summary">Ambil gambar kawasan kerja, isikan lokasi, kemudian tekan <b>Analisis hazard</b>. Setiap hazard yang dikenal pasti akan dinilai dengan matriks risiko 5 × 5 (Kebarangkalian × Keterukan) dan diberi cadangan kawalan mengikut hierarki kawalan.</p>
+      </div>
+      <div class="row"><button class="btn" id="btnManual"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Tambah hazard dari senarai semak</button></div>
+      <div class="lib" id="lib" hidden>
+        <div class="libhead"><input type="text" id="libSearch" placeholder="Cari hazard, cth. elektrik, licin, bising"><button class="btn sm ghost" id="libClose">Tutup</button></div>
+        <div class="libcats" id="libCats"></div>
+        <div class="liblist" id="libList"></div>
+        <div class="libcustom"><input type="text" id="customName" placeholder="Hazard lain, tulis sendiri"><button class="btn sm" id="customAdd">Tambah</button></div>
+      </div>
+      <p class="foot-note">Rujukan: Garis Panduan HIRARC JKKP 2008 dan Akta Keselamatan dan Kesihatan Pekerjaan 1994 (Pindaan 2022). Keputusan AI ialah bantuan awal — sahkan di tapak oleh orang kompeten sebelum tindakan diambil.</p>
+      <div class="row">
+        <button class="btn primary" id="btnSave" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg>Simpan ke log audit</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="view" id="view-stats" hidden>
+  <div class="kpis">
+    <div class="kpi"><b id="kScans">0</b><span>Imbasan disimpan</span></div>
+    <div class="kpi"><b id="kHaz">0</b><span>Hazard dikenal pasti</span></div>
+    <div class="kpi"><b id="kHigh" style="color:var(--hi)">0</b><span>Hazard risiko tinggi</span></div>
+    <div class="kpi"><b id="kAvg">0</b><span>Purata skor risiko</span></div>
+  </div>
+  <div class="two">
+    <div class="panel"><h2>Hazard mengikut kategori</h2><div class="bars" id="catBars"></div></div>
+    <div class="panel"><h2>Taburan matriks risiko</h2><div id="heat"></div><p class="small muted" style="margin-top:12px">Bilangan hazard dalam setiap sel Kebarangkalian (L) × Keterukan (S) bagi semua imbasan dalam log.</p></div>
+  </div>
+  <div class="panel" style="margin-top:20px"><h2>Tahap risiko</h2><div class="bars" id="lvlBars"></div></div>
+</section>
+
+<!-- LOG -->
+<section class="view" id="view-log" hidden>
+  <div class="panel">
+    <h2>Log audit KKP<span class="grow"></span><button class="btn sm" id="btnCsv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>Eksport CSV</button></h2>
+    <p class="store-note" id="storeNote"></p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Gambar</th><th>Tarikh</th><th>Lokasi</th><th>Hazard utama</th><th>Bil.</th><th>Risiko tertinggi</th><th>Penilai</th><th></th></tr></thead>
+      <tbody id="logBody"></tbody>
+    </table></div>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const toastEl = $("#toast"); let toastT;
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("show"), 3200); }
+
+/* ---------- risk helpers (JKKP HIRARC 2008) ---------- */
+const level = s => s >= 15 ? {k:"hi", n:"Tinggi"} : s >= 5 ? {k:"med", n:"Sederhana"} : {k:"lo", n:"Rendah"};
+const clamp15 = v => Math.min(5, Math.max(1, Math.round(Number(v) || 1)));
+const CTRL = [["penghapusan","Penghapusan"],["penggantian","Penggantian"],["kejuruteraan","Kejuruteraan"],["pentadbiran","Pentadbiran"],["ppe","PPE"]];
+
+/* ---------- state ---------- */
+const S = { img:null, blob:null, result:null, demo:false, stream:null, ctl:null, saved:false };
+const stage = $("#stage"), canvas = $("#canvas"), ctx = canvas.getContext("2d"), video = $("#video");
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
+  if (b.dataset.view !== "scan") renderLogViews();
+});
+
+/* ---------- image handling ---------- */
+function loadImage(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+async function setImageFromBitmapSource(srcEl, w, h){
+  const max = 1600, k = Math.min(1, max / Math.max(w, h));
+  const c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext("2d").drawImage(srcEl, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
+  const img = await loadImage(c.toDataURL("image/jpeg", 0.88));
+  return { img, blob };
+}
+async function useFile(file){
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { toast("Fail itu bukan gambar. Pilih fail JPG atau PNG."); return; }
+  stopLive();
+  const url = URL.createObjectURL(file);
+  try {
+    const raw = await loadImage(url);
+    const { img, blob } = await setImageFromBitmapSource(raw, raw.naturalWidth, raw.naturalHeight);
+    setImage(img, blob, false);
+  } catch { toast("Gambar tidak dapat dibaca. Cuba fail lain."); }
+  finally { URL.revokeObjectURL(url); }
+}
+$("#fileCam").onchange = e => { useFile(e.target.files[0]); e.target.value = ""; };
+$("#fileUp").onchange = e => { useFile(e.target.files[0]); e.target.value = ""; };
+stage.addEventListener("dragover", e => e.preventDefault());
+stage.addEventListener("drop", e => { e.preventDefault(); useFile(e.dataTransfer.files[0]); });
+
+function setImage(img, blob, demo){
+  const keep = !demo && !S.demo && S.result?.sumber === "manual" && S.result.hazard.length ? S.result : null;
+  S.img = img; S.blob = blob; S.demo = demo; S.result = keep; S.saved = false;
+  stage.classList.toggle("is-demo", demo);
+  $("#stageEmpty").hidden = true; video.hidden = true; canvas.hidden = false;
+  drawStage();
+  $("#btnAnalyse").disabled = demo;
+  $("#btnSave").disabled = true; $("#btnPdf").disabled = true;
+  setStatus("Gambar sedia untuk dianalisis", "—", "none");
+  $("#resultBody").innerHTML = demo ? "" : `<p class="summary">Semak lokasi dan aktiviti di sebelah kiri, kemudian tekan <b>Analisis hazard</b>. Anda juga boleh menilai secara manual dengan senarai semak.</p>`;
+  if (keep) renderResult();
+}
+function drawStage(){
+  if (!S.img) return;
+  canvas.width = S.img.naturalWidth; canvas.height = S.img.naturalHeight;
+  ctx.drawImage(S.img, 0, 0);
+  const hz = S.result?.hazard || [];
+  const W = canvas.width, H = canvas.height, lw = Math.max(3, W / 260), fs = Math.max(15, W / 42);
+  hz.forEach((h, i) => {
+    if (!Array.isArray(h.kotak) || h.kotak.length !== 4) return;
+    let [x, y, w, hh] = h.kotak.map(Number);
+    if ([x,y,w,hh].some(v => !isFinite(v))) return;
+    x = Math.max(0, Math.min(1, x)); y = Math.max(0, Math.min(1, y));
+    w = Math.max(0.02, Math.min(1 - x, w)); hh = Math.max(0.02, Math.min(1 - y, hh));
+    const lv = level(h.L * h.S), col = getComputedStyle(document.documentElement).getPropertyValue("--" + lv.k).trim() || "#F0565C";
+    ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.strokeRect(x*W, y*H, w*W, hh*H);
+    const label = `${i+1}. ${h.nama}`.slice(0, 48);
+    ctx.font = `600 ${fs}px "IBM Plex Sans", sans-serif`;
+    const tw = ctx.measureText(label).width + fs * .8, th = fs * 1.5;
+    let ly = y*H - th; if (ly < 0) ly = y*H;
+    const lx = Math.min(x*W, W - tw);
+    ctx.fillStyle = col; ctx.fillRect(lx, ly, tw, th);
+    ctx.fillStyle = "#fff"; ctx.fillText(label, lx + fs*.4, ly + fs*1.1);
+  });
+}
+
+/* ---------- live camera ---------- */
+async function startLive(){
+  const msg = $("#camMsg"); msg.hidden = true;
+  if (!navigator.mediaDevices?.getUserMedia) { msg.hidden = false; msg.textContent = "Kamera live tidak disokong di sini. Gunakan butang Kamera telefon atau Muat naik gambar."; return; }
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    video.srcObject = S.stream; await video.play();
+    $("#stageEmpty").hidden = true; canvas.hidden = true; video.hidden = false;
+    stage.classList.remove("is-demo");
+    $("#btnLive").hidden = true; $("#btnShoot").hidden = false;
+  } catch {
+    msg.hidden = false; msg.textContent = "Akses kamera live disekat oleh pelayar ini. Gunakan butang Kamera telefon (ia membuka kamera terus) atau Muat naik gambar.";
+  }
+}
+function stopLive(){
+  if (S.stream) { S.stream.getTracks().forEach(t => t.stop()); S.stream = null; }
+  video.hidden = true; $("#btnLive").hidden = false; $("#btnShoot").hidden = true;
+}
+$("#btnLive").onclick = startLive;
+$("#btnShoot").onclick = async () => {
+  if (!video.videoWidth) return;
+  const { img, blob } = await setImageFromBitmapSource(video, video.videoWidth, video.videoHeight);
+  stopLive(); setImage(img, blob, false);
+};
+$("#btnReset").onclick = () => {
+  stopLive(); S.ctl?.abort();
+  Object.assign(S, { img:null, blob:null, result:null, demo:false, saved:false });
+  canvas.hidden = true; $("#stageEmpty").hidden = false; stage.classList.remove("is-demo","scanning");
+  $("#btnAnalyse").disabled = true; $("#btnSave").disabled = true; $("#btnPdf").disabled = true;
+  setStatus("Belum ada gambar", "—", "none");
+  $("#resultBody").innerHTML = `<p class="summary">Ambil gambar kawasan kerja, isikan lokasi, kemudian tekan <b>Analisis hazard</b>.</p>`;
+  $("#lib").hidden = true;
+};
+
+/* ---------- AI analysis (Netlify Edge Function -> Gemini) ---------- */
+const blobToB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b); });
+async function askAI(blob, signal){
+  if (navigator.onLine === false) throw { code: "offline" };
+  const image = await blobToB64(blob);
+  let res;
+  try {
+    res = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, signal,
+      body: JSON.stringify({ image, mime: "image/jpeg", lokasi: $("#fLokasi").value.trim(), konteks: $("#fKonteks").value.trim() }) });
+  } catch (e) { if (e?.name === "AbortError") throw { code: "cancelled" }; throw { code: "network" }; }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 404) { setAI(false); throw { code: "not_configured" }; }
+  if (!res.ok || !data.result) throw { code: data.error || "server" };
+  return data.result;
+}
+
+let aiReady = null;
+function setAI(ok){
+  aiReady = ok;
+  $("#modeNote").textContent = ok
+    ? "AI tersedia. Anda juga boleh menambah atau membuang hazard secara manual selepas analisis."
+    : "AI tidak tersedia di laman ini. Gunakan senarai semak di panel keputusan untuk menilai secara manual.";
+  $("#btnAnalyse").lastChild.textContent = ok ? "Analisis hazard" : "Nilai dengan senarai semak";
+}
+(async () => {
+  if (location.protocol === "file:") return setAI(false);
+  try { const r = await fetch("/api/analyze", { method: "GET", cache: "no-store" }); setAI(r.status !== 404); }
+  catch { setAI(false); }
+})();
+
+function normalise(r){
+  const out = { tempat: String(r?.tempat || "Tempat kerja"), ringkasan: String(r?.ringkasan || ""), hazard: [], sumber: "ai" };
+  (Array.isArray(r?.hazard) ? r.hazard : []).slice(0, 8).forEach(h => {
+    if (!h || !h.nama) return;
+    const k = h.kawalan && typeof h.kawalan === "object" ? h.kawalan : {};
+    out.hazard.push({
+      nama: String(h.nama), kategori: String(h.kategori || "Lain-lain"), lokasi: String(h.lokasi || ""),
+      kesan: String(h.kesan || ""), L: clamp15(h.L), S: clamp15(h.S),
+      kawalan_sedia_ada: String(h.kawalan_sedia_ada || "Tiada kelihatan"),
+      kawalan: Object.fromEntries(CTRL.map(([key]) => [key, k[key] ? String(k[key]) : null])),
+      kotak: Array.isArray(h.kotak) ? h.kotak : null, sumber: h.sumber || "AI"
+    });
+  });
+  out.hazard.sort((a, b) => b.L*b.S - a.L*a.S);
+  return out;
+}
+
+const ERR = {
+  not_configured: "AI belum disediakan pada pelayan.",
+  rate_limited: "Had imbasan AI telah dicapai.",
+  offline: "Tiada sambungan internet.",
+  network: "Pelayan AI tidak dapat dihubungi.",
+  model_not_found: "Model AI pada pelayan tidak ditemui.",
+  upstream_error: "Perkhidmatan AI mengembalikan ralat.",
+  upstream_unreachable: "Perkhidmatan AI tidak dapat dihubungi.",
+  server: "Perkhidmatan AI mengembalikan ralat.",
+  bad_image: "Gambar tidak dapat dihantar.",
+  refused: "AI tidak dapat menganalisis gambar ini.",
+  invalid_json: "Keputusan AI tidak lengkap.",
+};
+
+$("#btnAnalyse").onclick = async () => {
+  if (!S.blob) return;
+  if (aiReady === false) { ensureResult(); renderResult(); openLib(); $("#lib").scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
+  S.ctl = new AbortController();
+  $("#btnAnalyse").disabled = true; $("#btnStop").hidden = false; stage.classList.add("scanning");
+  setStatus("Menganalisis gambar…", "…", "none");
+  $("#resultBody").innerHTML = `<div class="progress"><span class="dot"></span>AI sedang mengenal pasti hazard dan menilai risiko. Biasanya 15–60 saat.</div>`;
+  try {
+    const r = await askAI(S.blob, S.ctl.signal);
+    const manual = S.result?.sumber === "manual" ? S.result.hazard : [];
+    S.result = normalise(r); S.result.hazard.push(...manual); S.saved = false;
+    renderResult(); drawStage();
+  } catch (e) {
+    if (e?.code === "cancelled") { setStatus("Analisis dihentikan", "—", "none"); $("#resultBody").innerHTML = ""; }
+    else {
+      const prev = S.result?.sumber === "manual" ? S.result.hazard : [];
+      S.result = { tempat: $("#fLokasi").value.trim() || "Penilaian manual", sumber: "manual", hazard: prev, hazard_warn: true,
+        ringkasan: (ERR[e?.code] || "Analisis AI tidak berjaya.") + " Teruskan secara manual: pilih hazard yang anda lihat daripada senarai semak di bawah." };
+      renderResult(); drawStage(); openLib();
+    }
+  } finally {
+    stage.classList.remove("scanning"); $("#btnStop").hidden = true; $("#btnAnalyse").disabled = !S.blob || S.demo;
+  }
+};
+$("#btnStop").onclick = () => S.ctl?.abort();
+
+/* ---------- render result ---------- */
+function setStatus(title, badge, k){
+  $("#stTitle").textContent = title;
+  const b = $("#stBadge"); b.textContent = badge; b.className = "badge b-" + k;
+}
+function matrixHTML(hz){
+  const cnt = {}; hz.forEach(h => { const key = h.L + "-" + h.S; cnt[key] = (cnt[key] || 0) + 1; });
+  let s = `<div class="matrix" role="img" aria-label="Matriks risiko 5 kali 5">`;
+  for (let L = 5; L >= 1; L--) {
+    s += `<div class="ax">${L}</div>`;
+    for (let Sv = 1; Sv <= 5; Sv++) { const n = cnt[L+"-"+Sv]; s += `<div class="c ${level(L*Sv).k}${n?" on":""}">${n||""}</div>`; }
+  }
+  s += `<div></div>` + [1,2,3,4,5].map(x => `<div class="ax">${x}</div>`).join("") + `</div>`;
+  return s;
+}
+function renderResult(){
+  const r = S.result, hz = r.hazard;
+  const max = hz.reduce((m, h) => Math.max(m, h.L*h.S), 0);
+  const lv = level(max);
+  const noneMsg = r.sumber === "manual" ? "Belum ada hazard dipilih. Gunakan senarai semak di bawah." : "Tiada hazard ketara dikenal pasti dalam gambar ini.";
+  setStatus(r.tempat, hz.length ? `${lv.n.toUpperCase()} (${max})` : (r.sumber === "manual" ? "—" : "TIADA HAZARD"), hz.length ? lv.k : (r.sumber === "manual" ? "none" : "lo"));
+  const summ = r.ringkasan || (hz.length && r.sumber === "manual" ? `Penilaian manual: ${hz.length} hazard dipilih daripada senarai semak.` : noneMsg);
+  let html = `<p class="summary${r.hazard_warn ? " warn" : ""}">${esc(summ)}</p>`;
+  if (hz.length) {
+    html += `<div class="matrix-wrap">${matrixHTML(hz)}<div class="legend">
+      <div><i style="background:var(--hi)"></i>Tinggi 15–25: tindakan segera, hentikan kerja jika perlu</div>
+      <div><i style="background:var(--med)"></i>Sederhana 5–12: rancang kawalan, pantau</div>
+      <div><i style="background:var(--lo)"></i>Rendah 1–4: kekalkan kawalan sedia ada</div>
+      <div style="margin-top:6px">Paksi menegak: Kebarangkalian (L). Paksi melintang: Keterukan (S).</div></div></div>`;
+    const opt = v => [1,2,3,4,5].map(n => `<option${n === v ? " selected" : ""}>${n}</option>`).join("");
+    html += `<div class="hz">` + hz.map((h, i) => {
+      const s = h.L*h.S, l = level(s);
+      const ctrl = CTRL.filter(([k]) => h.kawalan[k]).map(([k, n]) => `<li><b>${n}</b><span>${esc(h.kawalan[k])}</span></li>`).join("");
+      return `<article class="hcard"><div class="top"><div class="num">${i+1}</div><div class="t"><h3>${esc(h.nama)}<span class="src">${h.sumber === "Manual" ? "Senarai semak" : h.sumber === "Demo" ? "Contoh" : "AI"}</span></h3><div class="meta">${esc(h.kategori)}${h.lokasi ? " — " + esc(h.lokasi) : ""}</div></div>
+        <div class="score b-${l.k}"><b>${s}</b><span>${l.n}</span></div></div>
+        <dl class="body"><div><dt>Risiko / kesan</dt><dd>${esc(h.kesan)}</dd></div><div><dt>Kawalan sedia ada</dt><dd>${esc(h.kawalan_sedia_ada)}</dd></div>
+        <div class="full"><dt>Cadangan kawalan (hierarki)</dt><dd><ul class="ctrl">${ctrl || "<li><span>Tiada cadangan. Tentukan kawalan di tapak.</span></li>"}</ul></dd></div></dl>
+        <div class="edit"><label>Kebarangkalian (L) <select data-f="L" data-i="${i}">${opt(h.L)}</select></label>
+        <label>Keterukan (S) <select data-f="S" data-i="${i}">${opt(h.S)}</select></label><span class="grow"></span>
+        <button class="btn sm ghost" data-rm="${i}">Buang</button></div></article>`;
+    }).join("") + `</div>`;
+  }
+  $("#resultBody").innerHTML = html;
+  $("#btnSave").disabled = S.demo || (r.sumber === "manual" && !hz.length) || S.saved;
+  $("#btnPdf").disabled = !hz.length && r.sumber === "manual";
+}
+$("#resultBody").addEventListener("change", e => {
+  const t = e.target; if (!t.matches("select[data-f]") || !S.result) return;
+  S.result.hazard[+t.dataset.i][t.dataset.f] = +t.value; S.saved = false; renderResult(); drawStage();
+});
+$("#resultBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-rm]"); if (!b || !S.result) return;
+  S.result.hazard.splice(+b.dataset.rm, 1); S.saved = false; renderResult(); drawStage();
+});
+
+/* ---------- checklist library (works offline, no AI) ---------- */
+const LIB = [
+  ["Kabel atau wayar elektrik terdedah","Elektrikal","Renjatan elektrik, litar pintas, kebakaran",3,4,{penghapusan:"Matikan bekalan dan tanggalkan kabel rosak",penggantian:"Ganti dengan kabel bertebat baharu",kejuruteraan:"Pasang RCD/ELCB 30 mA; salurkan kabel dalam konduit",pentadbiran:"Pemeriksaan berkala oleh pendawai berdaftar; notis bahaya",ppe:"Sarung tangan penebat elektrik"}],
+  ["Soket atau plag terlebih beban","Elektrikal","Panas melampau, kebakaran elektrik",3,4,{penghapusan:"Cabut peralatan yang tidak perlu",penggantian:null,kejuruteraan:"Tambah soket tetap dengan litar berasingan",pentadbiran:"Larang penggunaan penyambung berganda berangkai",ppe:null}],
+  ["Peralatan elektrik berhampiran air","Elektrikal","Elektrokusi",3,5,{penghapusan:"Alihkan peralatan dari kawasan basah",penggantian:"Guna peralatan bertaraf IP kalis air",kejuruteraan:"Pasang RCD; tinggikan soket dari lantai",pentadbiran:"Prosedur LOTO sebelum kerja",ppe:"But penebat elektrik"}],
+  ["Lantai licin atau basah","Fizikal","Tergelincir dan jatuh",4,2,{penghapusan:"Keringkan lantai dan baiki punca tumpahan",penggantian:null,kejuruteraan:"Lapisan lantai anti-gelincir; saliran",pentadbiran:"Papan tanda lantai licin; jadual pembersihan",ppe:"Kasut anti-gelincir"}],
+  ["Laluan terhalang atau risiko tersadung","Fizikal","Tersadung dan jatuh, kelewatan evakuasi",3,2,{penghapusan:"Alihkan barang dari laluan",penggantian:null,kejuruteraan:"Tandakan laluan dengan garisan lantai",pentadbiran:"Amalan 5S dan pemeriksaan housekeeping",ppe:null}],
+  ["Bekerja di tempat tinggi tanpa perlindungan jatuh","Fizikal","Jatuh dari tempat tinggi, kecederaan maut",3,5,{penghapusan:"Lakukan kerja dari aras tanah",penggantian:"Guna MEWP atau platform kerja",kejuruteraan:"Pasang rel pengadang dan jaring keselamatan",pentadbiran:"Permit kerja di tempat tinggi; orang kompeten",ppe:"Abah-abah badan penuh dengan tali penyambung"}],
+  ["Bukaan lantai atau lubang tidak berpenutup","Fizikal","Terjatuh ke dalam lubang",3,4,{penghapusan:null,penggantian:null,kejuruteraan:"Tutup dengan penutup kukuh berlabel; penghadang",pentadbiran:"Papan tanda amaran",ppe:null}],
+  ["Bunyi bising berlebihan","Fizikal","Kehilangan pendengaran akibat bising",4,3,{penghapusan:null,penggantian:"Mesin yang kurang bising",kejuruteraan:"Penutup akustik, peredam getaran",pentadbiran:"Pemantauan bising dan audiometri (Peraturan Bising 2019)",ppe:"Penyumbat atau penutup telinga"}],
+  ["Pencahayaan tidak mencukupi","Fizikal","Tersadung, kesilapan kerja, ketegangan mata",3,2,{penghapusan:null,penggantian:null,kejuruteraan:"Tambah lampu mengikut tahap lux yang sesuai",pentadbiran:"Laporan dan baiki lampu rosak segera",ppe:null}],
+  ["Persekitaran panas melampau","Fizikal","Strok haba, keletihan",3,3,{penghapusan:null,penggantian:null,kejuruteraan:"Pengudaraan, kipas, teduhan",pentadbiran:"Rehat berkala dan bekalan air minuman",ppe:"Pakaian ringan menyerap peluh"}],
+  ["Jentera tanpa pengadang bahagian bergerak","Mekanikal","Tersepit, terpotong, anggota putus",3,4,{penghapusan:null,penggantian:null,kejuruteraan:"Pasang pengadang tetap dan suis henti kecemasan",pentadbiran:"LOTO semasa penyelenggaraan; latihan operator",ppe:"Elak pakaian longgar dan barang kemas"}],
+  ["Objek jatuh dari atas","Mekanikal","Kecederaan kepala atau badan",3,4,{penghapusan:"Kosongkan barang longgar di aras atas",penggantian:null,kejuruteraan:"Papan kaki, jaring penangkap, zon eksklusi",pentadbiran:"Larang berada di bawah beban tergantung",ppe:"Topi keselamatan SIRIM"}],
+  ["Susunan barang tidak stabil","Mekanikal","Barang tumbang menimpa pekerja",3,3,{penghapusan:null,penggantian:null,kejuruteraan:"Rak berlabel had beban, dipasak ke dinding",pentadbiran:"Had ketinggian susunan; barang berat di bawah",ppe:"Kasut keselamatan"}],
+  ["Kenderaan atau forklift berkongsi laluan pejalan kaki","Mekanikal","Dilanggar kenderaan",3,5,{penghapusan:"Asingkan laluan kenderaan dan pejalan kaki",penggantian:null,kejuruteraan:"Penghadang fizikal, cermin cembung, lampu amaran",pentadbiran:"Had laju; operator berlesen",ppe:"Jaket keterlihatan tinggi"}],
+  ["Bahan kimia tanpa label atau SDS","Kimia","Pendedahan kimia, keracunan, kebakaran",3,4,{penghapusan:"Lupuskan bahan kimia tidak dikenal pasti",penggantian:"Guna bahan kurang berbahaya",kejuruteraan:"Kabinet simpanan kimia berpengudaraan",pentadbiran:"Label mengikut CLASS 2013; sediakan SDS; latihan",ppe:"Sarung tangan kimia, cermin mata"}],
+  ["Wasap, debu atau wap tanpa pengudaraan","Kimia","Penyakit pernafasan",3,4,{penghapusan:null,penggantian:"Kaedah basah atau bahan kurang berdebu",kejuruteraan:"Pengudaraan ekzos setempat (LEV)",pentadbiran:"Pemantauan pendedahan (USECHH)",ppe:"Respirator sesuai yang diuji padanan"}],
+  ["Alat pemadam api terhalang atau tamat tempoh","Kebakaran","Api tidak dapat dipadam awal",3,4,{penghapusan:"Alihkan halangan dari hadapan pemadam api",penggantian:"Ganti pemadam api tamat tempoh",kejuruteraan:"Garisan larangan di lantai",pentadbiran:"Pemeriksaan bulanan dan tag servis BOMBA",ppe:null}],
+  ["Laluan atau pintu kecemasan tersekat","Kebakaran","Terperangkap semasa kecemasan",3,5,{penghapusan:"Kosongkan laluan dan buka kunci pintu",penggantian:null,kejuruteraan:"Lampu dan papan tanda keluar kecemasan",pentadbiran:"Latihan kebakaran berkala; pemeriksaan harian",ppe:null}],
+  ["Bahan mudah terbakar berhampiran sumber api","Kebakaran","Kebakaran, letupan",3,5,{penghapusan:"Alihkan bahan mudah terbakar",penggantian:null,kejuruteraan:"Kabinet kalis api; jarak selamat",pentadbiran:"Permit kerja panas; larangan merokok",ppe:null}],
+  ["Mengangkat beban berat secara manual","Ergonomik","Kecederaan belakang dan otot",4,3,{penghapusan:"Elak angkat manual jika boleh",penggantian:"Pek lebih kecil atau ringan",kejuruteraan:"Troli, kren atau alat bantu angkat",pentadbiran:"Latihan teknik mengangkat; angkat berdua",ppe:"Sarung tangan cengkaman"}],
+  ["Postur janggal atau kerja berulang","Ergonomik","Gangguan otot rangka (MSD)",4,2,{penghapusan:null,penggantian:null,kejuruteraan:"Stesen kerja boleh laras",pentadbiran:"Putaran tugas dan rehat mikro",ppe:null}],
+  ["Air bertakung (pembiakan nyamuk)","Biologi","Denggi dan penyakit bawaan vektor",3,3,{penghapusan:"Buang air bertakung dan bekas terbuka",penggantian:null,kejuruteraan:"Baiki saliran dan bumbung bocor",pentadbiran:"Pemeriksaan mingguan kawasan",ppe:"Penghalau serangga"}],
+  ["Sisa klinikal atau objek tajam terbuka","Biologi","Jangkitan, luka tertusuk",2,4,{penghapusan:null,penggantian:null,kejuruteraan:"Bekas sisa tajam kalis tusukan",pentadbiran:"Prosedur pelupusan sisa terjadual",ppe:"Sarung tangan tahan tusukan"}],
+  ["Pekerja tidak memakai PPE yang diperlukan","Lain-lain","Kecederaan yang boleh dielak",4,3,{penghapusan:null,penggantian:null,kejuruteraan:null,pentadbiran:"Penguatkuasaan PPE oleh penyelia; taklimat keselamatan",ppe:"Sediakan PPE sesuai dan saiz yang betul"}],
+  ["Tekanan kerja atau waktu kerja berlebihan","Psikososial","Keletihan, stres, kemalangan",3,3,{penghapusan:null,penggantian:null,kejuruteraan:null,pentadbiran:"Hadkan kerja lebih masa; jadual syif seimbang",ppe:null}],
+].map(([nama, kategori, kesan, L, S, kawalan]) => ({ nama, kategori, kesan, L, S, kawalan }));
+let libCat = "Semua";
+function renderLib(){
+  const cats = ["Semua", ...new Set(LIB.map(h => h.kategori))];
+  $("#libCats").innerHTML = cats.map(c => `<button class="chip" aria-pressed="${c === libCat}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+  const q = $("#libSearch").value.trim().toLowerCase();
+  const list = LIB.filter(h => (libCat === "Semua" || h.kategori === libCat) && (!q || (h.nama + " " + h.kesan + " " + h.kategori).toLowerCase().includes(q)));
+  $("#libList").innerHTML = list.length ? list.map(h => { const l = level(h.L*h.S); return `<button class="libitem" data-lib="${LIB.indexOf(h)}"><span>${esc(h.nama)}<small>${esc(h.kategori)} — ${esc(h.kesan)}</small></span><span class="pill b-${l.k}">${h.L*h.S}</span></button>`; }).join("")
+    : `<p class="small muted">Tiada padanan. Tulis hazard anda sendiri di bawah.</p>`;
+}
+function openLib(){ $("#lib").hidden = false; renderLib(); }
+function ensureResult(){
+  if (!S.result) S.result = { tempat: $("#fLokasi").value.trim() || "Penilaian manual", ringkasan: "", hazard: [], sumber: "manual" };
+  return S.result;
+}
+function addHazard(h){
+  const r = ensureResult();
+  if (r.hazard.some(x => x.nama === h.nama)) { toast("Hazard ini sudah ada dalam senarai."); return; }
+  r.hazard.push({ nama: h.nama, kategori: h.kategori, lokasi: "", kesan: h.kesan, L: h.L, S: h.S, kawalan_sedia_ada: "Belum dinilai",
+    kawalan: Object.fromEntries(CTRL.map(([k]) => [k, h.kawalan?.[k] || null])), kotak: null, sumber: "Manual" });
+  r.hazard_warn = false; if (r.sumber === "manual") r.ringkasan = "";
+  S.saved = false; renderResult(); drawStage(); toast("Ditambah: " + h.nama + ". Laraskan L dan S mengikut keadaan di tapak.");
+}
+$("#btnManual").onclick = () => $("#lib").hidden ? openLib() : ($("#lib").hidden = true);
+$("#libClose").onclick = () => $("#lib").hidden = true;
+$("#libSearch").oninput = renderLib;
+$("#libCats").onclick = e => { const b = e.target.closest("[data-cat]"); if (b) { libCat = b.dataset.cat; renderLib(); } };
+$("#libList").onclick = e => { const b = e.target.closest("[data-lib]"); if (b) addHazard(LIB[+b.dataset.lib]); };
+$("#customAdd").onclick = () => {
+  const n = $("#customName").value.trim(); if (!n) { $("#customName").focus(); return; }
+  addHazard({ nama: n, kategori: "Lain-lain", kesan: "Tentukan di tapak", L: 3, S: 3, kawalan: {} }); $("#customName").value = "";
+};
+
+/* ---------- demo scenes ---------- */
+function scene(i){
+  const c = document.createElement("canvas"); c.width = 1200; c.height = 900; const g = c.getContext("2d");
+  const rect = (x,y,w,h,f) => { g.fillStyle = f; g.fillRect(x,y,w,h); };
+  if (i === 0) {
+    rect(0,0,1200,520,"#5b6670"); rect(0,520,1200,380,"#8a8f93");
+    for (let x=0;x<1200;x+=150){ g.strokeStyle="#7a7f83"; g.lineWidth=2; g.beginPath(); g.moveTo(x,520); g.lineTo(x-120,900); g.stroke(); }
+    rect(80,200,300,320,"#3c4a55"); rect(100,230,260,40,"#2c3740"); rect(100,300,260,40,"#2c3740");
+    g.fillStyle="rgba(120,170,210,.75)"; g.beginPath(); g.ellipse(640,730,300,90,0,0,Math.PI*2); g.fill();
+    g.fillStyle="rgba(200,230,250,.35)"; g.beginPath(); g.ellipse(600,715,140,30,0,0,Math.PI*2); g.fill();
+    rect(900,560,150,70,"#e8e4d8"); for (let k=0;k<3;k++) rect(920+k*42,580,20,28,"#333");
+    g.strokeStyle="#111"; g.lineWidth=12; g.beginPath(); g.moveTo(900,600); g.bezierCurveTo(780,640,760,700,700,740); g.stroke();
+    g.strokeStyle="#b87333"; g.lineWidth=5; g.beginPath(); g.moveTo(700,740); g.lineTo(670,760); g.moveTo(700,740); g.lineTo(680,775); g.stroke();
+    g.strokeStyle="#ffd84a"; g.lineWidth=4; for (let k=0;k<9;k++){ const a=k*0.7; g.beginPath(); g.moveTo(675,765); g.lineTo(675+Math.cos(a)*45,765+Math.sin(a)*35); g.stroke(); }
+  } else if (i === 1) {
+    rect(0,0,1200,900,"#9fc3dd"); rect(0,640,1200,260,"#a3876a");
+    g.strokeStyle="#c9c9c9"; g.lineWidth=10; for (let x=700;x<=1100;x+=200){ g.beginPath(); g.moveTo(x,120); g.lineTo(x,640); g.stroke(); }
+    for (let y=180;y<=560;y+=190){ g.beginPath(); g.moveTo(700,y); g.lineTo(1100,y); g.stroke(); rect(700,y-12,400,14,"#8b5a2b"); }
+    rect(150,80,24,560,"#e0a526"); rect(150,80,480,20,"#e0a526");
+    g.strokeStyle="#333"; g.lineWidth=3; g.beginPath(); g.moveTo(560,100); g.lineTo(560,300); g.stroke(); rect(535,300,50,40,"#555");
+    const person = (x, helmet) => { g.fillStyle="#c68e6a"; g.beginPath(); g.arc(x,420,34,0,Math.PI*2); g.fill();
+      if (helmet){ g.fillStyle="#f5d000"; g.beginPath(); g.arc(x,408,38,Math.PI,0); g.fill(); rect(x-46,404,92,10,"#f5d000"); }
+      else { g.fillStyle="#2b1d14"; g.beginPath(); g.arc(x,405,30,Math.PI,0); g.fill(); }
+      rect(x-40,458,80,130,"#f07a1a"); rect(x-40,500,80,12,"#e8e8e8"); rect(x-36,588,30,110,"#2f3b52"); rect(x+6,588,30,110,"#2f3b52"); };
+    person(360,false); person(900,true);
+    rect(30,760,260,50,"#6d6d6d"); rect(40,740,60,20,"#6d6d6d");
+  } else {
+    rect(0,0,1200,640,"#d9d4c7"); rect(0,640,1200,260,"#6e7378");
+    rect(470,170,220,70,"#b01e1e"); g.fillStyle="#fff"; g.font="700 34px sans-serif"; g.fillText("PEMADAM API",482,218);
+    g.fillStyle="#c62828"; g.beginPath(); g.roundRect(530,300,90,260,30); g.fill(); rect(555,270,40,40,"#222"); rect(595,280,60,12,"#222");
+    const box=(x,y,w,h)=>{ rect(x,y,w,h,"#b58a55"); g.strokeStyle="#8d6a3f"; g.lineWidth=4; g.strokeRect(x,y,w,h); rect(x+w/2-12,y,24,h,"#d7c29c"); };
+    box(420,430,200,170); box(610,460,190,140); box(500,300,180,140); box(80,500,220,140); box(300,560,150,80);
+    rect(900,260,220,380,"#8e9aa5"); g.strokeStyle="#6b7680"; g.lineWidth=4; g.strokeRect(900,260,220,380);
+  }
+  return c;
+}
+const DEMOS = [
+  { tempat:"Contoh: bengkel penyelenggaraan dengan lantai basah", ringkasan:"Contoh demo — kabel sambungan dengan konduktor terdedah dan percikan api berada di dalam takungan air. Risiko renjatan elektrik dan kebakaran sangat tinggi.",
+    hazard:[
+      { nama:"Kabel elektrik terdedah dalam air", kategori:"Elektrikal", lokasi:"Tengah lantai", kesan:"Renjatan elektrik (elektrokusi), litar pintas dan kebakaran", L:4, S:5, kawalan_sedia_ada:"Tiada kelihatan",
+        kawalan:{ penghapusan:"Matikan bekalan di papan suis dan tanggalkan kabel rosak serta-merta", penggantian:"Ganti dengan kabel berperisai kalis air bertaraf IP67", kejuruteraan:"Pasang ELCB/RCD 30 mA dan salurkan kabel dalam konduit di atas lantai", pentadbiran:"Pasang notis bahaya, laksanakan LOTO dan pemeriksaan berkala oleh pendawai", ppe:"But dan sarung tangan penebat elektrik" }, kotak:[0.53,0.6,0.35,0.3] },
+      { nama:"Lantai licin akibat takungan air", kategori:"Fizikal", lokasi:"Lantai bahagian bawah", kesan:"Tergelincir dan jatuh, kecederaan anggota", L:4, S:3, kawalan_sedia_ada:"Tiada kelihatan",
+        kawalan:{ penghapusan:"Keringkan lantai dan baiki punca kebocoran", penggantian:null, kejuruteraan:"Perbaiki kecerunan lantai dan saliran", pentadbiran:"Letak papan tanda lantai licin; jadual pembersihan", ppe:"Kasut keselamatan anti-gelincir" }, kotak:[0.28,0.7,0.5,0.22] } ] },
+  { tempat:"Contoh: tapak pembinaan dengan perancah", ringkasan:"Contoh demo — seorang pekerja di bawah beban kren tidak memakai topi keselamatan. Seorang lagi mematuhi PPE.",
+    hazard:[
+      { nama:"Pekerja tanpa topi keselamatan di bawah beban tergantung", kategori:"Mekanikal", lokasi:"Kiri, di bawah lengan kren", kesan:"Kecederaan kepala maut akibat objek jatuh", L:4, S:5, kawalan_sedia_ada:"Rakan sekerja memakai topi keselamatan",
+        kawalan:{ penghapusan:"Larang pekerja berada di bawah beban tergantung", penggantian:null, kejuruteraan:"Pasang penghadang zon eksklusi di bawah laluan kren", pentadbiran:"Penyelia tapak laksanakan pemeriksaan PPE harian; taklimat keselamatan", ppe:"Topi keselamatan SIRIM dengan tali dagu" }, kotak:[0.22,0.4,0.16,0.4] },
+      { nama:"Perancah tanpa rel pengadang lengkap", kategori:"Fizikal", lokasi:"Kanan", kesan:"Jatuh dari tempat tinggi", L:3, S:4, kawalan_sedia_ada:"Pelantar papan",
+        kawalan:{ penghapusan:"Lakukan kerja di aras tanah jika boleh", penggantian:"Guna platform kerja mudah alih (MEWP)", kejuruteraan:"Pasang rel atas, rel tengah dan papan kaki", pentadbiran:"Perancah diperiksa dan ditag oleh pemasang perancah berdaftar", ppe:"Abah-abah badan penuh dengan tali penyambung" }, kotak:[0.57,0.12,0.35,0.6] } ] },
+  { tempat:"Contoh: stor dengan alat pemadam api", ringkasan:"Contoh demo — kotak disusun di hadapan alat pemadam api dan menghalang akses semasa kecemasan.",
+    hazard:[
+      { nama:"Akses alat pemadam api terhalang", kategori:"Kebakaran", lokasi:"Tengah dinding", kesan:"Kelewatan memadam api awal; kebakaran merebak", L:3, S:5, kawalan_sedia_ada:"Papan tanda pemadam api dipasang",
+        kawalan:{ penghapusan:"Alihkan semua kotak dari kawasan 1 m di hadapan pemadam api", penggantian:null, kejuruteraan:"Cat garisan larangan di lantai hadapan pemadam api", pentadbiran:"Pemeriksaan bulanan pemadam api dan housekeeping 5S", ppe:null }, kotak:[0.34,0.25,0.34,0.45] },
+      { nama:"Susunan kotak tidak stabil", kategori:"Mekanikal", lokasi:"Tengah dan kiri", kesan:"Kotak jatuh menimpa pekerja", L:3, S:2, kawalan_sedia_ada:"Tiada kelihatan",
+        kawalan:{ penghapusan:null, penggantian:null, kejuruteraan:"Guna rak simpanan berlabel had beban", pentadbiran:"Tetapkan had ketinggian susunan", ppe:"Kasut keselamatan" }, kotak:[0.06,0.33,0.62,0.4] } ] }
+];
+document.querySelectorAll("[data-demo]").forEach(b => b.onclick = async () => {
+  stopLive();
+  const i = +b.dataset.demo, c = scene(i);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
+  const img = await loadImage(c.toDataURL("image/jpeg", 0.88));
+  setImage(img, blob, true);
+  S.result = normalise(DEMOS[i]); S.result.hazard.forEach(h => h.sumber = "Demo"); renderResult(); drawStage();
+});
+
+/* ---------- storage (Artifact db, fallback localStorage) ---------- */
+let db = null, logs = [], storeMode = "local";
+const LS_KEY = "hazscan-log";
+function lsRead(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
+function lsWrite(a){ try { localStorage.setItem(LS_KEY, JSON.stringify(a)); return true; } catch { return false; } }
+logs = lsRead();
+
+
+function thumb(){
+  if (!S.img) return null;
+  const k = 360 / Math.max(canvas.width, canvas.height);
+  const c = document.createElement("canvas"); c.width = Math.round(canvas.width*k); c.height = Math.round(canvas.height*k);
+  c.getContext("2d").drawImage(canvas, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.7);
+}
+$("#btnSave").onclick = async () => {
+  if (!S.result || S.demo) return;
+  if (S.saved) { toast("Imbasan ini sudah disimpan."); return; }
+  const hz = S.result.hazard, max = hz.reduce((m, h) => Math.max(m, h.L*h.S), 0);
+  const rec = { createdAt: new Date().toISOString(), lokasi: $("#fLokasi").value.trim() || S.result.tempat, tempat: S.result.tempat,
+    konteks: $("#fKonteks").value.trim(), penilai: $("#fPenilai").value.trim(), ringkasan: S.result.ringkasan,
+    hazard: hz.map(({kotak, ...h}) => h), maxScore: max, thumb: thumb() };
+  $("#btnSave").disabled = true;
+  try {
+    if (db) await db.collection("audit").add(rec);
+    else { rec.id = "l" + Date.now(); logs.unshift(rec); if (!lsWrite(logs)) throw 0; renderLogViews(); }
+    S.saved = true; $("#btnSave").disabled = true; toast("Disimpan ke log audit.");
+  } catch (e) {
+    $("#btnSave").disabled = false;
+    toast(e?.code === "invalid_argument" ? "Anda hanya mempunyai akses baca pada log ini." : e?.code === "quota_exceeded" ? "Log audit penuh. Padam rekod lama dahulu." : "Gagal menyimpan. Cuba lagi.");
+  }
+};
+
+/* ---------- log + stats rendering ---------- */
+const fmtDate = iso => { try { return new Date(iso).toLocaleString("ms-MY", { day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }); } catch { return iso; } };
+function renderLogViews(){
+  $("#storeNote").textContent = storeMode === "db"
+    ? "Log disimpan dalam artifak ini dan dikongsi dengan sesiapa yang anda beri akses."
+    : "Log disimpan dalam pelayar ini sahaja. Eksport CSV secara berkala sebagai sandaran.";
+  const body = $("#logBody");
+  if (!logs.length) body.innerHTML = `<tr><td colspan="8" class="empty-state">Belum ada rekod. Analisis gambar di tab Imbasan, kemudian tekan <b>Simpan ke log audit</b>.</td></tr>`;
+  else body.innerHTML = logs.map(r => {
+    const l = level(r.maxScore || 0), top = r.hazard?.[0];
+    return `<tr><td>${r.thumb ? `<img src="${esc(r.thumb)}" alt="">` : ""}</td><td>${esc(fmtDate(r.createdAt))}</td><td>${esc(r.lokasi)}</td>
+      <td>${top ? esc(top.nama) : "<span class='muted'>Tiada hazard</span>"}</td><td>${r.hazard?.length || 0}</td>
+      <td>${r.hazard?.length ? `<span class="pill b-${l.k}">${l.n} (${r.maxScore})</span>` : "—"}</td><td>${esc(r.penilai || "—")}</td>
+      <td style="white-space:nowrap"><button class="btn sm ghost" data-pdf="${esc(r.id)}">PDF</button> <button class="btn sm ghost" data-del="${esc(r.id)}">Padam</button></td></tr>`;
+  }).join("");
+  body.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.textContent = "Sahkan padam"; b.classList.add("danger"); setTimeout(() => { if (b.isConnected) { b.dataset.armed = ""; b.textContent = "Padam"; b.classList.remove("danger"); } }, 4000); return; }
+    const id = b.dataset.del;
+    try {
+      if (db) await db.doc("audit/" + id).delete();
+      else { logs = logs.filter(r => r.id !== id); lsWrite(logs); renderLogViews(); }
+      toast("Rekod dipadam.");
+    } catch { toast("Gagal memadam rekod ini."); }
+  });
+  body.querySelectorAll("[data-pdf]").forEach(b => b.onclick = () => { const r = logs.find(x => x.id === b.dataset.pdf); if (r) makePdf(r, r.thumb); });
+
+  // stats
+  const all = logs.flatMap(r => r.hazard || []);
+  $("#kScans").textContent = logs.length; $("#kHaz").textContent = all.length;
+  $("#kHigh").textContent = all.filter(h => h.L*h.S >= 15).length;
+  $("#kAvg").textContent = all.length ? (all.reduce((s, h) => s + h.L*h.S, 0) / all.length).toFixed(1) : "0";
+  const cats = {}; all.forEach(h => cats[h.kategori] = (cats[h.kategori] || 0) + 1);
+  const cArr = Object.entries(cats).sort((a, b) => b[1] - a[1]), cMax = Math.max(1, ...cArr.map(c => c[1]));
+  $("#catBars").innerHTML = cArr.length ? cArr.map(([k, n]) => `<div class="barrow"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${n/cMax*100}%"></div></div><b>${n}</b></div>`).join("") : `<p class="muted">Tiada data lagi.</p>`;
+  const lv = { hi:0, med:0, lo:0 }; all.forEach(h => lv[level(h.L*h.S).k]++);
+  const lMax = Math.max(1, lv.hi, lv.med, lv.lo);
+  $("#lvlBars").innerHTML = [["hi","Tinggi (15–25)"],["med","Sederhana (5–12)"],["lo","Rendah (1–4)"]].map(([k, n]) => `<div class="barrow"><span>${n}</span><div class="track"><div class="fill" style="width:${lv[k]/lMax*100}%;background:var(--${k})"></div></div><b>${lv[k]}</b></div>`).join("");
+  const cnt = {}; all.forEach(h => cnt[h.L+"-"+h.S] = (cnt[h.L+"-"+h.S] || 0) + 1);
+  const hMax = Math.max(1, ...Object.values(cnt));
+  let hs = `<div class="heat">`;
+  for (let L = 5; L >= 1; L--) { hs += `<div class="ax">L${L}</div>`; for (let s = 1; s <= 5; s++) { const n = cnt[L+"-"+s] || 0, k = level(L*s).k; hs += `<div class="c" style="background:color-mix(in srgb,var(--${k}) ${15 + (n/hMax)*85}%,transparent);color:${n ? "#fff" : "var(--muted)"}">${n || ""}</div>`; } }
+  hs += `<div></div>` + [1,2,3,4,5].map(s => `<div class="ax">S${s}</div>`).join("") + `</div>`;
+  $("#heat").innerHTML = hs;
+}
+
+/* ---------- exports ---------- */
+function saveFile(filename, data){
+  const type = filename.endsWith(".pdf") ? "application/pdf" : "text/csv;charset=utf-8";
+  const url = URL.createObjectURL(new Blob([data], { type }));
+  const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+$("#btnCsv").onclick = () => {
+  if (!logs.length) { toast("Tiada rekod untuk dieksport."); return; }
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [["Tarikh","Lokasi","Penilai","Hazard","Kategori","Kesan","L","S","Skor","Tahap","Kawalan sedia ada",...CTRL.map(c => c[1])]];
+  logs.forEach(r => (r.hazard?.length ? r.hazard : [null]).forEach(h => rows.push(h
+    ? [r.createdAt, r.lokasi, r.penilai, h.nama, h.kategori, h.kesan, h.L, h.S, h.L*h.S, level(h.L*h.S).n, h.kawalan_sedia_ada, ...CTRL.map(([k]) => h.kawalan?.[k] || "")]
+    : [r.createdAt, r.lokasi, r.penilai, "Tiada hazard"])));
+  saveFile(`log-audit-hazscan-${new Date().toISOString().slice(0,10)}.csv`, "\ufeff" + rows.map(r => r.map(q).join(",")).join("\r\n"));
+};
+
+function makePdf(rec, imgData){
+  const J = window.jspdf?.jsPDF;
+  if (!J) { toast("Penjana PDF gagal dimuatkan. Semak sambungan internet."); return; }
+  const doc = new J({ unit:"mm", format:"a4" }), W = 210;
+  doc.setFillColor(242,176,30); doc.rect(0,0,W,6,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text("Laporan HIRARC — HazScan AI", 14, 18);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10);
+  const meta = [`Tarikh: ${fmtDate(rec.createdAt)}`, `Lokasi: ${rec.lokasi || "-"}`, `Tempat dikesan: ${rec.tempat || "-"}`, `Penilai: ${rec.penilai || "-"}`];
+  if (rec.konteks) meta.push(`Aktiviti: ${rec.konteks}`);
+  let y = 26; meta.forEach(m => { doc.splitTextToSize(m, 110).forEach(t => { doc.text(t, 14, y); y += 5; }); });
+  if (imgData) { try { const p = doc.getImageProperties(imgData), w = 62, h = Math.min(48, w * p.height / p.width); doc.addImage(imgData, "JPEG", W - 14 - w, 12, w, h); y = Math.max(y, 12 + h + 4); } catch {} }
+  y += 2; doc.setFont("helvetica","bold"); doc.text("Ringkasan", 14, y); y += 5; doc.setFont("helvetica","normal");
+  doc.splitTextToSize(rec.ringkasan || "-", W - 28).forEach(t => { doc.text(t, 14, y); y += 5; });
+  const col = s => s >= 15 ? [214,51,58] : s >= 5 ? [201,127,6] : [35,150,79];
+  const hz = rec.hazard || [];
+  doc.autoTable({ startY: y + 3, styles:{ fontSize:8.5, cellPadding:2, valign:"top" }, headStyles:{ fillColor:[26,29,33] },
+    head:[["#","Hazard & lokasi","Risiko / kesan","L","S","Skor","Kawalan (hierarki)"]],
+    body: hz.length ? hz.map((h, i) => [i+1, `${h.nama}\n(${h.kategori})${h.lokasi ? "\n" + h.lokasi : ""}`, `${h.kesan}\nSedia ada: ${h.kawalan_sedia_ada}`, h.L, h.S, `${h.L*h.S}\n${level(h.L*h.S).n}`,
+      CTRL.filter(([k]) => h.kawalan?.[k]).map(([k, n]) => `${n}: ${h.kawalan[k]}`).join("\n")]) : [["-","Tiada hazard dikenal pasti","","","","",""]],
+    columnStyles:{ 0:{cellWidth:7}, 1:{cellWidth:38}, 2:{cellWidth:40}, 3:{cellWidth:8}, 4:{cellWidth:8}, 5:{cellWidth:18, fontStyle:"bold"}, 6:{cellWidth:"auto"} },
+    didParseCell: d => { if (d.section === "body" && d.column.index === 5 && hz[d.row.index]) d.cell.styles.textColor = col(hz[d.row.index].L * hz[d.row.index].S); } });
+  let fy = doc.lastAutoTable.finalY + 8; if (fy > 270) { doc.addPage(); fy = 20; }
+  doc.setFontSize(8.5); doc.setTextColor(90);
+  ["Matriks risiko JKKP: Tinggi 15–25 (tindakan segera), Sederhana 5–12 (rancang kawalan), Rendah 1–4 (kekalkan kawalan).",
+   "Rujukan: Garis Panduan HIRARC JKKP 2008; Akta KKP 1994 (Pindaan 2022). Penilaian AI perlu disahkan oleh orang kompeten di tapak.",
+   "", "Disahkan oleh: ____________________________    Tarikh: ______________"].forEach(t => { doc.text(t, 14, fy); fy += 5; });
+  const name = `HIRARC-${(rec.lokasi || "laporan").replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}-${String(rec.createdAt).slice(0,10)}.pdf`;
+  saveFile(name, doc.output("arraybuffer"));
+}
+$("#btnPdf").onclick = () => {
+  if (!S.result) return;
+  makePdf({ createdAt: new Date().toISOString(), lokasi: $("#fLokasi").value.trim() || S.result.tempat, tempat: S.result.tempat,
+    konteks: $("#fKonteks").value.trim(), penilai: $("#fPenilai").value.trim(), ringkasan: S.result.ringkasan, hazard: S.result.hazard },
+    S.img ? canvas.toDataURL("image/jpeg", 0.85) : null);
+};
+
+// react to theme changes so box colours stay in sync
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", drawStage);
+renderLogViews();
+})();
+</script>
+</body>
+</html>
